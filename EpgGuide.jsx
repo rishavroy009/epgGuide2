@@ -1,128 +1,137 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './EPGGuide.css';
 
-const generateEPGData = () => {
-  // ... keep the same mock data generator from previous implementations ...
+// TV Focus Management System
+const useTVFocus = () => {
+  const [focusedElement, setFocusedElement] = useState(null);
+  const elementsRef = useRef(new Map());
+
+  const moveFocus = (direction) => {
+    const currentIndex = Array.from(elementsRef.current.keys())
+      .indexOf(focusedElement);
+    
+    let newIndex = currentIndex;
+    switch(direction) {
+      case 'up': newIndex--; break;
+      case 'down': newIndex++; break;
+      case 'left': newIndex--; break;
+      case 'right': newIndex++; break;
+    }
+
+    const newElement = elementsRef.current.get(
+      Array.from(elementsRef.current.keys())[newIndex]
+    );
+
+    if (newElement) {
+      newElement.focus();
+      setFocusedElement(newElement);
+    }
+  };
+
+  return { elementsRef, moveFocus, focusedElement };
 };
 
-const epgData = generateEPGData();
-const HOURS_WINDOW = 4;
-const MINUTES_IN_WINDOW = HOURS_WINDOW * 60;
-
 const EPGGuide = () => {
-  const [startHour, setStartHour] = useState(0);
-  const [selectedChannelIndex, setSelectedChannelIndex] = useState(0);
-  const [selectedProgramIndex, setSelectedProgramIndex] = useState(0);
-  const [currentTime, setCurrentTime] = useState(new Date());
+  // TV Focus System
+  const { elementsRef, moveFocus } = useTVFocus();
   
+  // State Management
+  const [state, setState] = useState({
+    startHour: 0,
+    currentTime: new Date(),
+    channels: generateEPGData().channelInfo,
+    focusPath: [0, 0] // [channelIndex, programIndex]
+  });
+
+  // Refs
   const containerRef = useRef(null);
-  const channelRowsRef = useRef([]);
-  const programContainersRef = useRef([]);
+  const timeBarRef = useRef(null);
 
-  // Focus container on mount
+  // Time Synchronization
   useEffect(() => {
-    containerRef.current.focus();
-  }, []);
-
-  // Handle current time updates
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    const timer = setInterval(() => {
+      setState(prev => ({
+        ...prev,
+        currentTime: new Date(),
+        startHour: calculateOptimalStartHour(prev.startHour, new Date())
+      }));
+    }, 60000);
     return () => clearInterval(timer);
   }, []);
 
-  // Keyboard navigation handler
+  // Focus Initialization
+  useEffect(() => {
+    containerRef.current.focus();
+    updateTimeBarScroll();
+    scrollToCurrentFocus();
+  }, [state.focusPath, state.startHour]);
+
+  // Key Handling
   const handleKeyDown = (e) => {
-    const moveSelection = (channelDelta, programDelta) => {
-      // Channel navigation
-      if (channelDelta !== 0) {
-        const newIndex = Math.max(0, 
-          Math.min(epgData.channelInfo.length - 1, selectedChannelIndex + channelDelta));
-        setSelectedChannelIndex(newIndex);
-        setSelectedProgramIndex(0);
-        channelRowsRef.current[newIndex]?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'nearest'
-        });
-        return;
-      }
+    const { key } = e;
+    const [channelIndex, programIndex] = state.focusPath;
+    const visiblePrograms = getVisiblePrograms(channelIndex);
 
-      // Program navigation
-      const visiblePrograms = getVisiblePrograms(epgData.channelInfo[selectedChannelIndex]);
-      const newIndex = selectedProgramIndex + programDelta;
-
-      // Handle time window transitions
-      if (newIndex >= visiblePrograms.length) {
-        const nextHour = Math.min(20, startHour + HOURS_WINDOW);
-        if (nextHour !== startHour) {
-          setStartHour(nextHour);
-          setSelectedProgramIndex(0);
-          return;
-        }
-      } else if (newIndex < 0) {
-        const prevHour = Math.max(0, startHour - HOURS_WINDOW);
-        if (prevHour !== startHour) {
-          setStartHour(prevHour);
-          setSelectedProgramIndex(getVisiblePrograms(
-            epgData.channelInfo[selectedChannelIndex]
-          ).length - 1);
-          return;
-        }
-      }
-
-      const clampedIndex = Math.max(0, Math.min(visiblePrograms.length - 1, newIndex));
-      if (clampedIndex !== selectedProgramIndex) {
-        setSelectedProgramIndex(clampedIndex);
-        scrollToProgram(clampedIndex);
-      }
+    const navigation = {
+      ArrowUp: () => moveVertical(-1),
+      ArrowDown: () => moveVertical(1),
+      ArrowLeft: () => moveHorizontal(-1),
+      ArrowRight: () => moveHorizontal(1)
     };
 
-    switch(e.key) {
-      case 'ArrowUp': moveSelection(-1, 0); break;
-      case 'ArrowDown': moveSelection(1, 0); break;
-      case 'ArrowLeft': moveSelection(0, -1); break;
-      case 'ArrowRight': moveSelection(0, 1); break;
-      default: return;
-    }
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  // Scroll to program
-  const scrollToProgram = (index) => {
-    const container = programContainersRef.current[selectedChannelIndex];
-    const programElements = container?.querySelectorAll('.program');
-    if (programElements?.[index]) {
-      programElements[index].scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-        inline: 'center'
-      });
+    if (navigation[key]) {
+      e.preventDefault();
+      e.stopPropagation();
+      navigation[key]();
     }
   };
 
-  // Get visible programs
-  const getVisiblePrograms = (channel) => {
-    const windowStart = startHour * 60;
-    const windowEnd = windowStart + MINUTES_IN_WINDOW;
-    return channel.programs.filter(p => 
-      p.startTime < windowEnd && 
-      p.endTime > windowStart
-    );
-  };
-
-  // Calculate program widths
-  const calculateProgramWidths = (programs) => {
-    const totalDuration = programs.reduce((sum, p) => {
-      const visibleStart = Math.max(p.startTime, startHour * 60);
-      const visibleEnd = Math.min(p.endTime, (startHour + HOURS_WINDOW) * 60);
-      return sum + (visibleEnd - visibleStart);
-    }, 0);
-
-    return programs.map(p => {
-      const visibleStart = Math.max(p.startTime, startHour * 60);
-      const visibleEnd = Math.min(p.endTime, (startHour + HOURS_WINDOW) * 60);
-      return `${((visibleEnd - visibleStart) / totalDuration * 100).toFixed(2)}%`;
+  // Navigation Logic
+  const moveVertical = (delta) => {
+    setState(prev => {
+      const newIndex = clamp(prev.focusPath[0] + delta, 0, prev.channels.length - 1);
+      return {
+        ...prev,
+        focusPath: [newIndex, 0],
+        startHour: calculateOptimalStartHour(prev.startHour, prev.currentTime)
+      };
     });
+  };
+
+  const moveHorizontal = (delta) => {
+    setState(prev => {
+      const [channelIndex] = prev.focusPath;
+      const visiblePrograms = getVisiblePrograms(channelIndex);
+      const newIndex = clamp(prev.focusPath[1] + delta, 0, visiblePrograms.length - 1);
+      
+      // Handle time window transitions
+      const program = visiblePrograms[newIndex];
+      if (!program) return prev;
+
+      const newStartHour = calculateNewStartHour(program, prev.startHour);
+      
+      return {
+        ...prev,
+        focusPath: [channelIndex, newIndex],
+        startHour: newStartHour
+      };
+    });
+  };
+
+  // Scroll Management
+  const scrollToCurrentFocus = () => {
+    const [channelIndex, programIndex] = state.focusPath;
+    const channelRow = elementsRef.current.get(`channel-${channelIndex}`);
+    const programCell = elementsRef.current.get(`program-${channelIndex}-${programIndex}`);
+
+    channelRow?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    programCell?.scrollIntoView({ behavior: 'smooth', inline: 'center' });
+  };
+
+  // Time Bar Synchronization
+  const updateTimeBarScroll = () => {
+    const scrollPercentage = (state.startHour / 24) * timeBarRef.current.scrollWidth;
+    timeBarRef.current.scrollLeft = scrollPercentage;
   };
 
   return (
@@ -132,73 +141,61 @@ const EPGGuide = () => {
       tabIndex="0"
       onKeyDown={handleKeyDown}
     >
-      {/* Time Bar */}
-      <div className="time-bar">
-        {Array.from({ length: 24 / HOURS_WINDOW }, (_, i) => {
-          const hour = i * HOURS_WINDOW;
-          return (
-            <div 
-              key={hour}
-              className={`time-block ${startHour === hour ? 'active' : ''}`}
-              style={{ width: `${100 / (24 / HOURS_WINDOW)}%` }}
-            >
-              {`${formatHour(hour)} - ${formatHour(hour + HOURS_WINDOW)}`}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Current Time Line */}
-      <div 
-        className="current-time-line"
-        style={{ left: `${currentTimePosition()}%` }}
+      <TimeBar 
+        ref={timeBarRef}
+        startHour={state.startHour}
+        currentTime={state.currentTime}
       />
-
-      {/* Channels Grid */}
-      <div className="channels-grid">
-        {epgData.channelInfo.map((channel, channelIndex) => {
-          const visiblePrograms = getVisiblePrograms(channel);
-          const programWidths = calculateProgramWidths(visiblePrograms);
-
-          return (
-            <div 
-              key={channel.channelId}
-              className={`channel-row ${selectedChannelIndex === channelIndex ? 'selected-channel' : ''}`}
-              ref={el => channelRowsRef.current[channelIndex] = el}
-            >
-              <div className="channel-name">{channel.name}</div>
-              <div 
-                className="programs-container"
-                ref={el => programContainersRef.current[channelIndex] = el}
-              >
-                {visiblePrograms.map((program, programIndex) => (
-                  <div
-                    key={program.index}
-                    className={`program ${selectedProgramIndex === programIndex && 
-                      selectedChannelIndex === channelIndex ? 'selected' : ''}`}
-                    style={{ width: programWidths[programIndex] }}
-                  >
-                    <div className="program-title">{program.name}</div>
-                    <div className="program-time">
-                      {`${formatTime(program.startTime)} - ${formatTime(program.endTime)}`}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      
+      <ChannelGrid
+        channels={state.channels}
+        focusPath={state.focusPath}
+        startHour={state.startHour}
+        elementsRef={elementsRef}
+        currentTime={state.currentTime}
+      />
     </div>
   );
 };
 
+// Sub-components
+const TimeBar = React.forwardRef(({ startHour, currentTime }, ref) => (
+  <div className="time-bar" ref={ref}>
+    {Array.from({ length: 24 / 4 }).map((_, i) => (
+      <TimeBlock 
+        key={i}
+        hour={i * 4}
+        isActive={i * 4 === startHour}
+        currentTime={currentTime}
+      />
+    ))}
+  </div>
+));
+
+const ChannelGrid = ({ channels, focusPath, startHour, elementsRef, currentTime }) => (
+  <div className="channels-grid">
+    {channels.map((channel, channelIndex) => (
+      <ChannelRow
+        key={channel.channelId}
+        channel={channel}
+        channelIndex={channelIndex}
+        focusPath={focusPath}
+        startHour={startHour}
+        elementsRef={elementsRef}
+        currentTime={currentTime}
+      />
+    ))}
+  </div>
+);
+
 // Helper functions
-const formatHour = (hour) => `${(hour % 24).toString().padStart(2, '0')}:00`;
-const formatTime = (minutes) => {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+const calculateOptimalStartHour = (currentStart, time) => {
+  const currentHour = time.getHours();
+  return currentHour >= currentStart && currentHour < currentStart + 4 
+    ? currentStart 
+    : Math.floor(currentHour / 4) * 4;
 };
+
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 export default EPGGuide;
