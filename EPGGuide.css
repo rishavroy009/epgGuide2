@@ -1,135 +1,116 @@
 .epg-container {
-  --channel-row-height: 80px;
-  --time-bar-height: 50px;
+  --channel-height: 8rem;
+  --timebar-height: 4rem;
+  --focus-indicator-size: 0.4rem;
+  
   display: flex;
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
-  position: relative;
-  background: #ffffff;
-  font-family: 'Arial', sans-serif;
-  outline: none;
+  background: #0a0a0a;
+  color: #fff;
+  font-family: 'TV Sans', Arial, sans-serif;
 }
 
+/* Time Bar */
 .time-bar {
   display: flex;
-  height: var(--time-bar-height);
-  background: #2c3e50;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  z-index: 100;
+  height: var(--timebar-height);
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  background: #1a1a1a;
+  position: relative;
 }
 
 .time-block {
-  padding: 12px;
-  color: #ecf0f1;
-  border-right: 1px solid #34495e;
-  transition: all 0.3s ease;
-  font-size: 14px;
+  flex: 0 0 25%;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  border-right: 1px solid #2a2a2a;
+  font-size: 1.2rem;
+  position: relative;
 }
 
-.time-block.active {
-  background: #3498db;
-  font-weight: bold;
-}
-
+/* Channels Grid */
 .channels-grid {
   flex: 1;
   overflow-y: auto;
-  background: #f8f9fa;
   scroll-behavior: smooth;
+  scroll-snap-type: y mandatory;
 }
 
+/* Channel Row */
 .channel-row {
   display: flex;
-  height: var(--channel-row-height);
-  border-bottom: 1px solid #dee2e6;
-  background: white;
-  transition: background 0.3s ease;
-}
-
-.channel-row.selected-channel {
-  background: #e3f2fd;
-  border-left: 3px solid #3498db;
+  height: var(--channel-height);
+  scroll-snap-align: start;
+  border-bottom: 1px solid #2a2a2a;
+  position: relative;
 }
 
 .channel-name {
-  width: 150px;
-  padding: 0 20px;
-  background: #f1f3f5;
+  width: 15rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
+  font-size: 1.4rem;
+  background: #141414;
   position: sticky;
   left: 0;
-  z-index: 10;
-  border-right: 2px solid #dee2e6;
+  z-index: 2;
 }
 
+/* Programs Container */
 .programs-container {
   flex: 1;
   display: flex;
   overflow-x: auto;
-  padding: 10px 0;
-  scroll-behavior: smooth;
   scroll-snap-type: x mandatory;
-}
-
-.program {
-  padding: 12px;
-  border-right: 1px solid #dee2e6;
   position: relative;
-  transition: all 0.3s ease;
-  background: #ffffff;
+}
+
+/* Program Item */
+.program {
+  flex: none;
   scroll-snap-align: start;
+  padding: 1rem;
+  border-right: 1px solid #2a2a2a;
+  position: relative;
+  background: #1a1a1a;
+  transition: transform 0.2s ease;
 }
 
-.program.selected {
-  background: #3498db;
-  color: white;
-  z-index: 5;
+.program:focus {
+  outline: none;
   transform: scale(1.02);
-  box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+  z-index: 2;
+  box-shadow: 0 0 0 var(--focus-indicator-size) #0066ff;
 }
 
-.program-title {
-  font-size: 14px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-bottom: 4px;
-}
-
-.program-time {
-  font-size: 12px;
-  opacity: 0.9;
-  white-space: nowrap;
-}
-
-.current-time-line {
+/* Current Time Indicator */
+.current-time {
   position: absolute;
-  top: var(--time-bar-height);
+  top: 0;
   bottom: 0;
-  width: 2px;
-  background: #e74c3c;
-  z-index: 200;
+  width: 0.2rem;
+  background: #ff0000;
+  z-index: 3;
   pointer-events: none;
   transition: left 0.5s linear;
 }
 
-/* Hide scrollbars */
-.channels-grid::-webkit-scrollbar,
-.programs-container::-webkit-scrollbar {
-  display: none;
+/* TV Optimized Scrollbars */
+::-webkit-scrollbar {
+  width: 0.4rem;
+  height: 0.4rem;
 }
 
-.channels-grid,
-.programs-container {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+::-webkit-scrollbar-thumb {
+  background: #0066ff;
+  border-radius: 0.2rem;
+}
+
+::-webkit-scrollbar-track {
+  background: #2a2a2a;
 }
