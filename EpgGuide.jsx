@@ -1,121 +1,112 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './EPGGuide.css';
-import { epgData } from './sdk'; // Import from your SDK
+import { epgData } from './sdk';
 
 const HOURS_WINDOW = 4;
-const MINUTES_IN_WINDOW = HOURS_WINDOW * 60;
+const MINUTES_WINDOW = HOURS_WINDOW * 60;
 
 const EPGGuide = () => {
-  const [selectedChannelIndex, setSelectedChannelIndex] = useState(0);
-  const [selectedProgramIndex, setSelectedProgramIndex] = useState(0);
-  const [startHour, setStartHour] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [selectedChannel, setSelectedChannel] = useState(0);
+  const [selectedProgram, setSelectedProgram] = useState(0);
+  const [startHour, setStartHour] = useState(0);
   
-  const channelsContainerRef = useRef(null);
-  const programsContainerRef = useRef(null);
-  const timeBarRef = useRef(null);
+  const channelsRef = useRef([]);
+  const programsRef = useRef([]);
+  const containerRef = useRef(null);
 
-  // Focus management
-  useEffect(() => {
-    channelsContainerRef.current.focus();
-  }, []);
-
-  // Current time updates
+  // Update current time every minute
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
-  // Keyboard navigation
-  const handleKeyPress = (e) => {
+  // Keyboard navigation handler
+  const handleKeyDown = useCallback((e) => {
     const channelCount = epgData.channels.length;
-    const visiblePrograms = getVisiblePrograms();
-    
+    const programs = getVisiblePrograms();
+
     switch(e.key) {
       case 'ArrowUp':
-        setSelectedChannelIndex(prev => Math.max(0, prev - 1));
-        setSelectedProgramIndex(0);
+        setSelectedChannel(prev => Math.max(0, prev - 1));
+        setSelectedProgram(0);
         break;
       case 'ArrowDown':
-        setSelectedChannelIndex(prev => Math.min(channelCount - 1, prev + 1));
-        setSelectedProgramIndex(0);
+        setSelectedChannel(prev => Math.min(channelCount - 1, prev + 1));
+        setSelectedProgram(0);
         break;
-      case 'ArrowLeft': {
-        const newIndex = selectedProgramIndex - 1;
-        if (newIndex >= 0) {
-          setSelectedProgramIndex(newIndex);
+      case 'ArrowLeft':
+        if (selectedProgram > 0) {
+          setSelectedProgram(prev => prev - 1);
         } else {
           setStartHour(prev => Math.max(0, prev - HOURS_WINDOW));
         }
         break;
-      }
-      case 'ArrowRight': {
-        const newIndex = selectedProgramIndex + 1;
-        if (newIndex < visiblePrograms.length) {
-          setSelectedProgramIndex(newIndex);
+      case 'ArrowRight':
+        if (selectedProgram < programs.length - 1) {
+          setSelectedProgram(prev => prev + 1);
         } else {
           setStartHour(prev => Math.min(20, prev + HOURS_WINDOW));
         }
         break;
-      }
       default:
         return;
     }
     e.preventDefault();
-  };
+  }, [selectedProgram, startHour]);
 
   // Scroll to selected elements
   useEffect(() => {
-    const channelElement = document.querySelector(`.channel-row[data-index="${selectedChannelIndex}"]`);
-    const programElement = document.querySelector(`.program[data-index="${selectedProgramIndex}"]`);
+    channelsRef.current[selectedChannel]?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest'
+    });
     
-    channelElement?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    programElement?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-    
-    // Sync time bar scroll
-    const timeBarScroll = (startHour / 24) * timeBarRef.current.scrollWidth;
-    timeBarRef.current.scrollTo({ left: timeBarScroll, behavior: 'smooth' });
-  }, [selectedChannelIndex, selectedProgramIndex, startHour]);
+    programsRef.current[selectedProgram]?.scrollIntoView({
+      behavior: 'smooth',
+      inline: 'center'
+    });
+  }, [selectedChannel, selectedProgram, startHour]);
 
-  // Get programs in current time window
+  // Get visible programs for current time window
   const getVisiblePrograms = () => {
-    const channel = epgData.channels[selectedChannelIndex];
     const windowStart = startHour * 60;
-    const windowEnd = windowStart + MINUTES_IN_WINDOW;
+    const windowEnd = windowStart + MINUTES_WINDOW;
     
-    return channel.programs.filter(program => 
+    return epgData.channels[selectedChannel].programs.filter(program => 
       program.startTime < windowEnd && 
       (program.startTime + program.duration) > windowStart
     );
   };
 
-  // Calculate program width
+  // Calculate program width percentage
   const calculateProgramWidth = (program) => {
     const windowStart = startHour * 60;
-    const windowEnd = windowStart + MINUTES_IN_WINDOW;
+    const windowEnd = windowStart + MINUTES_WINDOW;
     const start = Math.max(program.startTime, windowStart);
     const end = Math.min(program.startTime + program.duration, windowEnd);
-    return ((end - start) / MINUTES_IN_WINDOW) * 100;
+    return ((end - start) / MINUTES_WINDOW) * 100;
   };
 
-  // Current time position
-  const currentTimePosition = () => {
-    const minutes = currentTime.getHours() * 60 + currentTime.getMinutes();
-    return ((minutes - startHour * 60) / MINUTES_IN_WINDOW) * 100;
-  };
+  // Current time position in percentage
+  const currentTimePosition = ((currentTime.getHours() * 60 + currentTime.getMinutes() - startHour * 60) / MINUTES_WINDOW) * 100;
 
   return (
-    <div className="epg-container" tabIndex="0" onKeyDown={handleKeyPress}>
+    <div 
+      className="epg-container"
+      ref={containerRef}
+      tabIndex="0"
+      onKeyDown={handleKeyDown}
+    >
       {/* Time Bar */}
-      <div className="time-bar" ref={timeBarRef}>
+      <div className="time-bar">
         {Array.from({ length: 24 / HOURS_WINDOW }).map((_, i) => (
-          <div 
+          <div
             key={i}
-            className="time-block"
+            className="time-slot"
             style={{ width: `${100 / (24 / HOURS_WINDOW)}%` }}
-            onClick={() => setStartHour(i * HOURS_WINDOW)}
           >
-            {`${String(i * HOURS_WINDOW).padStart(2, '0')}:00 - ${String((i + 1) * HOURS_WINDOW).padStart(2, '0')}:00`}
+            {`${String(i * HOURS_WINDOW).padStart(2, '0')}:00`}
           </div>
         ))}
       </div>
@@ -123,24 +114,24 @@ const EPGGuide = () => {
       {/* Current Time Line */}
       <div 
         className="current-time-line"
-        style={{ left: `${currentTimePosition()}%` }}
+        style={{ left: `${currentTimePosition}%` }}
       />
 
       {/* Channels List */}
-      <div className="channels-container" ref={channelsContainerRef}>
+      <div className="channels-list">
         {epgData.channels.map((channel, channelIndex) => (
-          <div 
+          <div
             key={channel.id}
-            className={`channel-row ${selectedChannelIndex === channelIndex ? 'selected' : ''}`}
-            data-index={channelIndex}
+            className={`channel-row ${selectedChannel === channelIndex ? 'selected' : ''}`}
+            ref={el => channelsRef.current[channelIndex] = el}
           >
-            <div className="channel-name">{channel.name}</div>
-            <div className="programs-container">
-              {getVisiblePrograms(channel).map((program, programIndex) => (
+            <div className="channel-info">{channel.name}</div>
+            <div className="programs-row">
+              {getVisiblePrograms().map((program, programIndex) => (
                 <div
                   key={program.id}
-                  className={`program ${selectedProgramIndex === programIndex ? 'selected' : ''}`}
-                  data-index={programIndex}
+                  className={`program ${selectedProgram === programIndex ? 'selected' : ''}`}
+                  ref={el => programsRef.current[programIndex] = el}
                   style={{ width: `${calculateProgramWidth(program)}%` }}
                 >
                   <div className="program-title">{program.title}</div>
@@ -157,7 +148,7 @@ const EPGGuide = () => {
   );
 };
 
-// Helper function to format minutes to HH:MM
+// Helper function to format minutes
 const formatTime = (minutes) => {
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
