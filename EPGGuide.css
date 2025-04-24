@@ -1,116 +1,126 @@
 .epg-container {
-  --channel-height: 8rem;
-  --timebar-height: 4rem;
-  --focus-indicator-size: 0.4rem;
-  
   display: flex;
   flex-direction: column;
   height: 100vh;
-  overflow: hidden;
-  background: #0a0a0a;
-  color: #fff;
-  font-family: 'TV Sans', Arial, sans-serif;
+  background: #1a1a1a;
+  color: white;
+  font-family: Arial, sans-serif;
 }
 
-/* Time Bar */
 .time-bar {
   display: flex;
-  height: var(--timebar-height);
+  height: 50px;
+  background: #2a2a2a;
+  border-bottom: 1px solid #333;
   overflow-x: auto;
-  scroll-behavior: smooth;
-  background: #1a1a1a;
-  position: relative;
 }
 
 .time-block {
-  flex: 0 0 25%;
+  flex-shrink: 0;
+  padding: 10px;
+  border-right: 1px solid #333;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-right: 1px solid #2a2a2a;
-  font-size: 1.2rem;
-  position: relative;
+  transition: background 0.2s;
 }
 
-/* Channels Grid */
-.channels-grid {
+.time-block:hover {
+  background: #3a3a3a;
+}
+
+.channels-container {
   flex: 1;
   overflow-y: auto;
-  scroll-behavior: smooth;
-  scroll-snap-type: y mandatory;
 }
 
-/* Channel Row */
 .channel-row {
   display: flex;
-  height: var(--channel-height);
-  scroll-snap-align: start;
-  border-bottom: 1px solid #2a2a2a;
-  position: relative;
+  min-height: 80px;
+  border-bottom: 1px solid #333;
 }
 
 .channel-name {
-  width: 15rem;
+  width: 150px;
+  padding: 10px;
+  background: #252525;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.4rem;
-  background: #141414;
+  font-weight: bold;
   position: sticky;
   left: 0;
-  z-index: 2;
 }
 
-/* Programs Container */
 .programs-container {
   flex: 1;
   display: flex;
   overflow-x: auto;
-  scroll-snap-type: x mandatory;
   position: relative;
 }
 
-/* Program Item */
 .program {
-  flex: none;
-  scroll-snap-align: start;
-  padding: 1rem;
-  border-right: 1px solid #2a2a2a;
-  position: relative;
-  background: #1a1a1a;
-  transition: transform 0.2s ease;
+  padding: 10px;
+  border-right: 1px solid #333;
+  background: #303030;
+  transition: background 0.2s;
+  flex-shrink: 0;
 }
 
-.program:focus {
-  outline: none;
-  transform: scale(1.02);
-  z-index: 2;
-  box-shadow: 0 0 0 var(--focus-indicator-size) #0066ff;
+.program.selected {
+  background: #0066cc;
+  z-index: 1;
 }
 
-/* Current Time Indicator */
-.current-time {
+.program-title {
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.program-time {
+  font-size: 0.8em;
+  opacity: 0.8;
+}
+
+.current-time-line {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 0.2rem;
-  background: #ff0000;
-  z-index: 3;
+  width: 2px;
+  background: red;
+  z-index: 2;
   pointer-events: none;
   transition: left 0.5s linear;
 }
 
-/* TV Optimized Scrollbars */
+/* Scrollbar Styling */
 ::-webkit-scrollbar {
-  width: 0.4rem;
-  height: 0.4rem;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #0066ff;
-  border-radius: 0.2rem;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
   background: #2a2a2a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #666;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #888;
+}
+
+/* Focus Styles */
+.channel-row.selected {
+  background: rgba(0, 102, 204, 0.1);
+}
+
+:focus {
+  outline: 2px solid #0066cc;
+  outline-offset: -2px;
 }
